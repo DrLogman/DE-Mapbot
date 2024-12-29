@@ -26,7 +26,7 @@ Servo servo_motor; //our servo name
 
 //Robot Lk
 void setup(){
-
+  Serial.begin(9600);
   pinMode(RightMotorForward, OUTPUT);
   pinMode(LeftMotorForward, OUTPUT);
   pinMode(LeftMotorBackward, OUTPUT);
@@ -54,6 +54,7 @@ void setup(){
 
 void loop(){
 
+  /*
   int distanceRight = 0;
   int distanceLeft = 0;
   delay(50);
@@ -81,7 +82,8 @@ void loop(){
   }
   else{
     moveForward(); 
-  }
+  }*/
+    Serial.println(distance);
     distance = readPing();
 }
 
