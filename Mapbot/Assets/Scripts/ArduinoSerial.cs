@@ -17,6 +17,7 @@ public class ArduinoSerial : MonoBehaviour
     [SerializeField] bool sendBool = false;
     int count = 0;
     float timePassed = 0;
+    Vector3 basePos;
 
     // Start is called before the first frame update
     void Start()
@@ -35,6 +36,8 @@ public class ArduinoSerial : MonoBehaviour
         accelerometerSerial.BaseStream.Flush();
 
         //make it callibrate and set settings here thru serial
+
+        basePos = new Vector3(0, 0, 0);
     }
 
     // Update is called once per frame
@@ -54,19 +57,44 @@ public class ArduinoSerial : MonoBehaviour
                 {
                     data = data + " " + dataReceived[i];
                 }
-                Debug.Log("Received from Acc: " + data);
-                Debug.Log(((short)dataReceived[3] << 8) | dataReceived[2]);
 
-                Vector3 displacementVector = new Vector3((short)(((short)dataReceived[3] << 8) | dataReceived[2]), (short)(((short)dataReceived[5] << 8) | dataReceived[4]), /*(short)(((short)dataReceived[7] << 8) | dataReceived[6])*/ 0);
+                /* acc method
+                //Debug.Log("Received from Acc: " + data);
+                Debug.Log((short)(((short)dataReceived[3] << 8) | dataReceived[2]) + " " + (short)(((short)dataReceived[5] << 8) | dataReceived[4]) + " " + (short)(((short)dataReceived[7] << 8) | dataReceived[6]));
 
+                Vector3 accelerationVector = new Vector3((short)(((short)dataReceived[3] << 8) | dataReceived[2]), (short)(((short)dataReceived[5] << 8) | dataReceived[4]), (short)(((short)dataReceived[7] << 8) | dataReceived[6]));
+                Vector3 velVector = new Vector3((short)(((short)dataReceived[9] << 8) | dataReceived[8]), (short)(((short)dataReceived[11] << 8) | dataReceived[10]), (short)(((short)dataReceived[13] << 8) | dataReceived[12]));
                 //get time passed from serial, figure out negative wrapping
 
+                Vector3 displacementVector = (16 * 9.81f / 32768) * (accelerationVector);
+                displacementVector -= new Vector3(0,0,9.8f);
+                displacementVector *= (0.5f * timePassed * timePassed);
 
-                cube.transform.position = (displacementVector / 10);
+                cube.transform.position += (displacementVector * 100);
                 timePassed = 0;
 
                 Vector3 rotationVector = new Vector3((((short)dataReceived[15] << 8) | dataReceived[14]), (((short)dataReceived[17] << 8) | dataReceived[16]), (((short)dataReceived[19] << 8) | dataReceived[18]));
                 cube.transform.rotation = Quaternion.Euler((rotationVector / 32768) * 180);
+                */
+
+                //Debug.Log("Received from Acc: " + data);
+                //Debug.Log((short)(((short)dataReceived[3] << 8) | dataReceived[2]) + " " + (short)(((short)dataReceived[5] << 8) | dataReceived[4]) + " " + (short)(((short)dataReceived[7] << 8) | dataReceived[6]));
+
+                Vector3 displacementVector = new Vector3((short)(((short)dataReceived[3] << 8) | dataReceived[2]), (short)(((short)dataReceived[5] << 8) | dataReceived[4]), 0);
+                Vector3 velVector = new Vector3((short)(((short)dataReceived[9] << 8) | dataReceived[8]), (short)(((short)dataReceived[11] << 8) | dataReceived[10]), (short)(((short)dataReceived[13] << 8) | dataReceived[12]));
+
+                if(displacementVector.magnitude <= 10)
+                {
+                    Debug.Log("RESET");
+                    basePos = cube.transform.position;
+                } else
+                {
+                    cube.transform.position = basePos + (displacementVector / 10);
+                }
+
+                Vector3 rotationVector = new Vector3((((short)dataReceived[15] << 8) | dataReceived[14]), (((short)dataReceived[17] << 8) | dataReceived[16]), (((short)dataReceived[19] << 8) | dataReceived[18]));
+                cube.transform.rotation = Quaternion.Euler((rotationVector / 32768) * 180);
+
             }
             catch (System.TimeoutException)
             {
