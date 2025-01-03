@@ -319,7 +319,6 @@ GameObject:
   m_Component:
   - component: {fileID: 987311953}
   - component: {fileID: 987311952}
-  - component: {fileID: 987311954}
   m_Layer: 0
   m_Name: Serial Reader
   m_TagString: Untagged
@@ -339,11 +338,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bfb03cc8080a7564c843dbfe0c49c381, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  arduinoPortName: COM3
+  arduinoPortName: COM4
   accelerometerPortName: COM5
   inputString: 
-  sendPing: 0
   serialMessage: FF AA 96 01 00
+  sendPing: 0
   cube: {fileID: 1497984523}
   sendBool: 0
 --- !u!4 &987311953
@@ -361,19 +360,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &987311954
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 987311951}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d9986a6fa20495948a8466bc2cc1311b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  cube: {fileID: 1497984523}
 --- !u!1 &1497984523
 GameObject:
   m_ObjectHideFlags: 0
