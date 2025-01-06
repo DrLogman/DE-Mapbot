@@ -215,6 +215,7 @@ public class ArduinoSerial : MonoBehaviour
         yield return new WaitForSeconds(1);
         SendSerialHex("FFAA000000");
         SendSerialHex("FFAA010400");
+        SendSerialHex("FFAA000000");
         doneCal = true;
     }
 
