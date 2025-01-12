@@ -115,7 +115,7 @@ void loop()
       display.setCursor(10,10); //x,y
       display.setTextSize(5); //adjust text size
       display.println(serialInput); //print
-      //client.println(serialInput);
+      client.println(serialInput);
       Serial.println(serialInput);
       char pingString[] = "ping";
       if(strcmp(serialInput, pingString) == 0) 

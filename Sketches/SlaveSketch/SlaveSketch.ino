@@ -5,23 +5,30 @@
 
 unsigned long last_time = 0;
 
-char ssid[] = "LogOS";          //  your network SSID (name)
-char pass[] = "00000000";   // your network password
+char ssid[] = "GL-AXT1800-514";          //  your network SSID (name)
+char pass[] = "HASY2D98PT";   // your network password
 int status = WL_IDLE_STATUS;
 
 WiFiServer server(23);
 
 const float wheelRadius = 3.3125; //cm
-const float motorFrequency = 0.7849; //Hz
+const float calculatedSpeed = 16.4; //cm/s
 
 Servo frontLeft;
 Servo frontRight;
 Servo backLeft;
 Servo backRight;
 
+int state = 0; //0 is waiting, 1 is moving forward, 2 is turning left, 3 is turning right
+
 void setup() {
   delay(2000);
 
+  for(int i = 0; i < 10; i++) {
+      turnLeft();
+  }
+
+  delay(2000);
   Serial.begin(9600);
 
   Serial.println("Attempting to connect to WPA network...");
@@ -39,14 +46,12 @@ void setup() {
     IPAddress myAddress = WiFi.localIP();
     Serial.println(myAddress);
   }
-
-  //delay(2000);
-  //moveDistance(100);
 }
+
 
 void loop()
 {
-  if ( status != WL_CONNECTED) {
+  if (status != WL_CONNECTED) {
     status = WiFi.begin(ssid, pass);
     while(true);
   }
@@ -80,27 +85,40 @@ void loop()
       }
 
       serialInput[currentSize] = '\0';
+      Serial.print(state);
       Serial.println(serialInput);
-      char pingString[] = "ping";
-      
-/*      
-      if(strcmp(serialInput, pingString) == 0) 
-      {
-        client.println("ping");
-        display.println("PINGING");
-      }
-*/
+      client.println(serialInput);     
 
+      if(state == 0) {
+        Serial.println("waiting");
+        char forwardString[] = "forward";
+        if(strcmp(serialInput, forwardString) == 0) 
+        {
+          state = 1;
+        }
+      } else {
+        char stopString[] = "stop";
+        if(strcmp(serialInput, stopString) == 0) 
+        {
+          state = 0;
+        }
+      }
+      
       client.flush();
+    }
+
+    if(state == 1) {
+      moveDistance(10);
     }
   }
 
 
-    if (millis() > last_time + 2000)
-    {
-      Serial.println("Arduino is alive!!");
-      last_time = millis();
-    }
+  if (millis() > last_time + 2000)
+  {
+    Serial.println("Arduino is alive!!");
+    last_time = millis();
+  }
+
 }
 
 float getUltrasonic(int trigPin, int echoPin) {
@@ -122,11 +140,9 @@ float moveDistance(float targetDistance) {
   backRight.attach(10);
   frontLeft.attach(13);
   frontRight.attach(12);
-  
-  delay(500);
 
   float realDistance = 0.0;
-  float timeIncrement = 500.0; //ms
+  float timeIncrement = 100.0; //ms
   float incrementsCounted = 0.0;
 
   Serial.println("Moving");
@@ -136,18 +152,36 @@ float moveDistance(float targetDistance) {
   frontRight.write(0);
   backRight.write(0);
 
-  while(realDistance < targetDistance) {
-    delayMicroseconds(timeIncrement);
+  float startTime = millis();
 
-    realDistance += (0.001 * timeIncrement * motorFrequency * wheelRadius * 2.0 * 3.14159);
+  float errorConstant = 1.0;
+
+  while(realDistance < (targetDistance - errorConstant)) {
+    delay(timeIncrement);
+
+    float deltaTime = millis() - startTime;
+
+    realDistance += (0.001 * timeIncrement * calculatedSpeed);
 
     Serial.println(realDistance);
 
     incrementsCounted++;
+
+    startTime = millis();
   }
 
+  realDistance += errorConstant;
+
+
   Serial.print("Speed: ");
-  Serial.println(realDistance * (incrementsCounted * timeIncrement)); //cm/s
+  Serial.println(realDistance / (incrementsCounted * timeIncrement * 0.001 )); //cm/s
+  Serial.print("Distance: ");
+  Serial.println(realDistance);
+
+  frontLeft.write(90);
+  backLeft.write(90);
+  frontRight.write(90);
+  backRight.write(90);
 
   backLeft.detach();
   backRight.detach();
@@ -155,4 +189,116 @@ float moveDistance(float targetDistance) {
   frontRight.detach();
 
   return realDistance;
+}
+
+float moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
+  backLeft.attach(11);
+  backRight.attach(10);
+  frontLeft.attach(13);
+  frontRight.attach(12);
+
+  float realDistance = 0.0;
+  float timeIncrement = 100.0; //ms
+  float incrementsCounted = 0.0;
+
+  Serial.println("Moving");
+
+  frontLeft.write(0);
+  backLeft.write(0);
+  frontRight.write(180);
+  backRight.write(180);
+
+  float startTime = millis();
+
+  float errorConstant = 1.0;
+
+  while(realDistance < (targetDistance - errorConstant)) {
+    delay(timeIncrement);
+
+    float deltaTime = millis() - startTime;
+
+    realDistance += (0.001 * timeIncrement * calculatedSpeed);
+
+    Serial.println(realDistance);
+
+    incrementsCounted++;
+
+    startTime = millis();
+  }
+
+  realDistance += errorConstant;
+
+
+  Serial.print("Speed: ");
+  Serial.println(realDistance / (incrementsCounted * timeIncrement * 0.001 )); //cm/s
+  Serial.print("Distance: ");
+  Serial.println(realDistance);
+
+  frontLeft.write(90);
+  backLeft.write(90);
+  frontRight.write(90);
+  backRight.write(90);
+
+  backLeft.detach();
+  backRight.detach();
+  frontLeft.detach();
+  frontRight.detach();
+
+  return realDistance;
+}
+
+void turnLeft() {
+  backLeft.attach(11);
+  backRight.attach(10);
+  frontLeft.attach(13);
+  frontRight.attach(12);
+
+  float timeIncrement = 100.0; //ms
+
+  Serial.println("Moving");
+
+  frontLeft.write(0);
+  backLeft.write(0);
+  frontRight.write(0);
+  backRight.write(0);
+
+  delay(timeIncrement);
+
+  frontLeft.write(90);
+  backLeft.write(90);
+  frontRight.write(90);
+  backRight.write(90);
+
+  backLeft.detach();
+  backRight.detach();
+  frontLeft.detach();
+  frontRight.detach();
+}
+
+void turnRight() { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
+  backLeft.attach(11);
+  backRight.attach(10);
+  frontLeft.attach(13);
+  frontRight.attach(12);
+
+  float timeIncrement = 100.0; //ms
+
+  Serial.println("Moving");
+
+  frontLeft.write(180);
+  backLeft.write(180);
+  frontRight.write(180);
+  backRight.write(180);
+
+  delay(timeIncrement);
+
+  frontLeft.write(90);
+  backLeft.write(90);
+  frontRight.write(90);
+  backRight.write(90);
+
+  backLeft.detach();
+  backRight.detach();
+  frontLeft.detach();
+  frontRight.detach();
 }
