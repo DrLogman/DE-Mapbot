@@ -5,8 +5,8 @@
 
 unsigned long last_time = 0;
 
-char ssid[] = "GL-AXT1800-514";          //  your network SSID (name)
-char pass[] = "HASY2D98PT";   // your network password
+const char ssid[] = "GL-AXT1800-514";          //  your network SSID (name)
+const char pass[] = "HASY2D98PT";   // your network password
 int status = WL_IDLE_STATUS;
 
 WiFiServer server(23);
@@ -14,21 +14,45 @@ WiFiServer server(23);
 const float wheelRadius = 3.3125; //cm
 const float calculatedSpeed = 16.4; //cm/s
 
+Servo ultraServo;
+
+class UltrasonicSensor{ //finish this
+  public:
+  float initialAngle;
+
+  public:
+  int trigPin;
+
+  public:
+  int echoPin;
+
+  public:
+  UltrasonicSensor(float inAngle, int trig, int echo) {
+    initialAngle = inAngle;
+    trigPin = trig;
+    echoPin = echo;
+  }
+};
+
+UltrasonicSensor UltraOne(10, 1, 2);
+UltrasonicSensor UltraTwo();
+UltrasonicSensor UltraThree();
+UltrasonicSensor UltraFour();
+
 Servo frontLeft;
 Servo frontRight;
 Servo backLeft;
 Servo backRight;
 
-int state = 0; //0 is waiting, 1 is moving forward, 2 is turning left, 3 is turning right
+int state = 0; //0 is waiting, 1 is moving forward, 2 is moving backward, 3 is turning left, 4 is turning right
+const char forwardString[] = "forward";
+const char backString[] = "back";
+const char leftString[] = "left";
+const char rightString[] = "right";
 
 void setup() {
   delay(2000);
 
-  for(int i = 0; i < 10; i++) {
-      turnLeft();
-  }
-
-  delay(2000);
   Serial.begin(9600);
 
   Serial.println("Attempting to connect to WPA network...");
@@ -91,10 +115,22 @@ void loop()
 
       if(state == 0) {
         Serial.println("waiting");
-        char forwardString[] = "forward";
+        
         if(strcmp(serialInput, forwardString) == 0) 
         {
           state = 1;
+        }
+        else if(strcmp(serialInput, backString) == 0) 
+        {
+          state = 2;
+        }
+        else if(strcmp(serialInput, leftString) == 0) 
+        {
+          state = 3;
+        }
+        else if(strcmp(serialInput, rightString) == 0) 
+        {
+          state = 4;
         }
       } else {
         char stopString[] = "stop";
@@ -121,14 +157,14 @@ void loop()
 
 }
 
-float getUltrasonic(int trigPin, int echoPin) {
+float getUltrasonic(UltrasonicSensor ultra) { //add angle measurement using servo and initial angle (or maybe make diff method for that?)
   float distance = 0;
 
-  digitalWrite(trigPin, HIGH);
+  digitalWrite(ultra.trigPin, HIGH);
   delay(10);
-  digitalWrite(trigPin, LOW);
+  digitalWrite(ultra.trigPin, LOW);
 
-  float echoTime = pulseIn(echoPin, HIGH);
+  float echoTime = pulseIn(ultra.echoPin, HIGH);
 
   distance = echoTime / 148.0;
 
@@ -301,4 +337,8 @@ void turnRight() { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
   backRight.detach();
   frontLeft.detach();
   frontRight.detach();
+}
+
+void sendData() {
+  string dataToSend = ""; //fix
 }
