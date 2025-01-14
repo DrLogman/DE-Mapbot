@@ -7,7 +7,6 @@ using System;
 public class AccelerometerManager : MonoBehaviour
 {
     [SerializeField] string accelerometerPortName;
-    [SerializeField] GameObject shoeObj;
     SerialPort accelerometerSerial;
     public bool doneCal = false;
     bool initialRotFound = false;

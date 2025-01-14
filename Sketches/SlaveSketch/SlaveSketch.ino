@@ -12,6 +12,8 @@ int status = WL_IDLE_STATUS;
 
 WiFiServer server(23);
 
+WiFiClient client;
+
 const float wheelRadius = 3.3125; //cm
 const float calculatedSpeed = 16.4; //cm/s
 
@@ -26,6 +28,9 @@ class UltrasonicSensor{ //finish this
 
   public:
   int echoPin;
+
+  public:
+  float averageDist = 0;
 
   public:
   UltrasonicSensor(float inAngle, int trig, int echo) {
@@ -46,10 +51,12 @@ Servo backLeft;
 Servo backRight;
 
 int state = 0; //0 is waiting, 1 is moving forward, 2 is moving backward, 3 is turning left, 4 is turning right
-const char forwardString[] = "forward";
-const char backString[] = "back";
-const char leftString[] = "left";
-const char rightString[] = "right";
+const char forwardString[] = "fo";
+const char backString[] = "ba";
+const char leftString[] = "le";
+const char rightString[] = "ri";
+
+float totalDistance = 0;
 
 void setup() {
   delay(2000);
@@ -82,7 +89,7 @@ void loop()
     status = WiFi.begin(ssid, pass);
     while(true);
   }
-  WiFiClient client = server.available();
+  client = server.available();
   while (client) 
   {
     if(client.available() > 0) 
@@ -112,6 +119,9 @@ void loop()
       }
 
       serialInput[currentSize] = '\0';
+      char* movementInput = new char[2];
+      movementInput[0] = serialInput[0];
+      movementInput[1] = serialInput[1];
       Serial.print(state);
       Serial.println(serialInput);
       client.println(serialInput);     
@@ -119,38 +129,47 @@ void loop()
       if(state == 0) {
         Serial.println("waiting");
         
-        if(strcmp(serialInput, forwardString) == 0) 
+        if(strcmp(movementInput, forwardString) == 0) 
         {
           state = 1;
         }
-        else if(strcmp(serialInput, backString) == 0) 
+        else if(strcmp(movementInput, backString) == 0) 
         {
           state = 2;
         }
-        else if(strcmp(serialInput, leftString) == 0) 
+        else if(strcmp(movementInput, leftString) == 0) 
         {
           state = 3;
         }
-        else if(strcmp(serialInput, rightString) == 0) 
+        else if(strcmp(movementInput, rightString) == 0) 
         {
           state = 4;
         }
       } else {
-        char stopString[] = "stop";
-        if(strcmp(serialInput, stopString) == 0) 
+        char stopString[] = "st";
+        if(strcmp(movementInput, stopString) == 0) 
         {
           state = 0;
         }
       }
       
-      client.flush();
-    }
 
+    }
+    if(state == 0) {
+      backLeft.detach();
+      backRight.detach();
+      frontLeft.detach();
+      frontRight.detach();
+
+      //sendData(totalDistance);
+
+      totalDistance = 0;
+    }
     if(state == 1) {
-      moveDistance(10);
+      totalDistance += moveDistance(10);
     }
     if(state == 2) {
-      moveDistanceBackward(10);
+      totalDistance -= moveDistanceBackward(10);
     }
     if(state == 3) {
       turnLeft();
@@ -158,6 +177,8 @@ void loop()
     if(state == 4) {
       turnRight();
     }
+
+    client.flush();
   }
 
 
@@ -169,7 +190,7 @@ void loop()
 
 }
 
-float getUltrasonic(UltrasonicSensor ultra) { //add angle measurement using servo and initial angle (or maybe make diff method for that?)
+float getUltrasonic(UltrasonicSensor ultra) { //consider adding filter here
   float distance = 0;
 
   digitalWrite(ultra.trigPin, HIGH);
@@ -183,7 +204,7 @@ float getUltrasonic(UltrasonicSensor ultra) { //add angle measurement using serv
   return distance;
 }
 
-void moveDistance(float targetDistance) {
+float moveDistance(float targetDistance) {
   backLeft.attach(11);
   backRight.attach(10);
   frontLeft.attach(13);
@@ -236,10 +257,10 @@ void moveDistance(float targetDistance) {
   frontLeft.detach();
   frontRight.detach();
 
-  sendData(realDistance);
+  return realDistance;
 }
 
-void moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
+float moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
   backLeft.attach(11);
   backRight.attach(10);
   frontLeft.attach(13);
@@ -292,7 +313,7 @@ void moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE MO
   frontLeft.detach();
   frontRight.detach();
 
-  sendData(-realDistance);
+  return realDistance;
 }
 
 void turnLeft() {
@@ -321,6 +342,7 @@ void turnLeft() {
   backRight.detach();
   frontLeft.detach();
   frontRight.detach();
+
 }
 
 void turnRight() { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
@@ -374,8 +396,12 @@ void sendData(float distanceMoved) {
 
   dataToSend[8] = (UltraFour.initialAngle + ultraServoAngle);
 
-  for(int i = 0; i < 8; i++) {
-    server.write(dataToSend[i]);
-    server.write(" ");
+
+  client.print("A ");
+  for(int i = 0; i < 9; i++) {
+    client.print(dataToSend[i]);
+    client.print(" ");
   }
+  client.println(" ");
+  client.flush();
 }

@@ -8,12 +8,15 @@ public class ArduinoReadWrite : MonoBehaviour
 {
     private SerialPort arduinoSerial;
     [SerializeField] string portName;
-    [SerializeField] GameObject robot;
+    [SerializeField] GameObject robot, markerPrefab;
     [SerializeField] AccelerometerManager accelerometerManager;
+
+    List<GameObject> markers = new List<GameObject>();
 
     float pingTime = 0;
     bool pingWaiting = false;
     float currentAngle = 0;
+    bool moving = false;
 
     // Start is called before the first frame update
     void Start()
@@ -36,17 +39,11 @@ public class ArduinoReadWrite : MonoBehaviour
                 string data = arduinoSerial.ReadLine();
 
                 Debug.Log("Received from Arduino: " + data);
-
-                if (data == "ping")
+                /*
+                if (string.Equals(data.Substring(0, 1), "A"))
                 {
-                    Debug.Log("Ping: " + (int)(pingTime) + " ms");
-                    arduinoSerial.WriteLine("Ping: " + (int)(pingTime) + " ms");
-                }
-
-                if (data.Substring(0, 1) == "A")
-                {
-                    InterpretMovementData(data.Substring(1));
-                }
+                    InterpretMovementData(data);
+                }*/
             }
             catch (System.TimeoutException)
             {
@@ -54,25 +51,47 @@ public class ArduinoReadWrite : MonoBehaviour
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.W)) //make ordered structure with else stop
+        if (Input.GetKey(KeyCode.W)) //make ordered structure with else stop
         {
-            arduinoSerial.Write("forward");
+            if(!moving)
+            {
+                arduinoSerial.WriteLine("forward");
+                moving = true;
+                arduinoSerial.BaseStream.Flush();
+            }
         }
-        else if (Input.GetKeyDown(KeyCode.S))
+        else if (Input.GetKey(KeyCode.S))
         {
-            arduinoSerial.Write("back");
+            if (!moving)
+            {
+                arduinoSerial.WriteLine("back");
+                moving = true;
+                arduinoSerial.BaseStream.Flush();
+            }
         }
-        else if (Input.GetKeyDown(KeyCode.A))
+        else if (Input.GetKey(KeyCode.A))
         {
-            arduinoSerial.Write("left");
+            if (!moving)
+            {
+                arduinoSerial.WriteLine("left");
+                moving = true;
+                arduinoSerial.BaseStream.Flush();
+            }
         }
-        else if (Input.GetKeyDown(KeyCode.D))
+        else if (Input.GetKey(KeyCode.D))
         {
-            arduinoSerial.Write("right");
+            if (!moving)
+            {
+                arduinoSerial.WriteLine("left");
+                moving = true;
+                arduinoSerial.BaseStream.Flush();
+            }
         }
-        else if (Input.GetKeyUp(KeyCode.W) || Input.GetKeyUp(KeyCode.A) || Input.GetKeyUp(KeyCode.S) || Input.GetKeyUp(KeyCode.D))
+         else if(moving)
         {
-            arduinoSerial.Write("stop");
+            arduinoSerial.WriteLine("stop");
+            moving = false;
+            arduinoSerial.BaseStream.Flush();
         }
 
         arduinoSerial.BaseStream.Flush();
@@ -88,7 +107,7 @@ public class ArduinoReadWrite : MonoBehaviour
 
     void InterpretMovementData(string data)
     {
-        char[] delimiterChars = { ' ', ',', '\t' };
+        char[] delimiterChars = { ' ', ',', '\t', 'A' };
 
         string[] splitData = data.Split(delimiterChars);
 
@@ -102,13 +121,39 @@ public class ArduinoReadWrite : MonoBehaviour
         float ultraDistanceFour = float.Parse(splitData[7]);
         float ultraAngleFour = float.Parse(splitData[8]);
 
-        robot.transform.position += new Vector3(Mathf.Cos(currentAngle) * distanceMoved, 0, Mathf.Sin(currentAngle) * distanceMoved);
+        robot.transform.position += new Vector3(Mathf.Cos(currentAngle * Mathf.Deg2Rad) * distanceMoved, 0, Mathf.Sin(currentAngle * Mathf.Deg2Rad) * distanceMoved);
 
         robot.transform.rotation = Quaternion.Euler(0, currentAngle, 0);
 
+        float noiseThreshold = 1000;
 
-        //organize how data is sent and recieved, also save rotation when sending move signal and then determine polar using that angle and the subsequent disp, then set new angle and repeat.
+        if(ultraDistanceOne < noiseThreshold)
+        {
+            PlaceMarker(ultraDistanceOne, ultraAngleOne);
+        }
+        if (ultraDistanceTwo < noiseThreshold)
+        {
+            PlaceMarker(ultraDistanceTwo, ultraAngleTwo);
+        }
+        if (ultraDistanceThree < noiseThreshold)
+        {
+            PlaceMarker(ultraDistanceThree, ultraAngleThree);
+        }
+        if (ultraDistanceFour < noiseThreshold)
+        {
+            PlaceMarker(ultraDistanceFour, ultraAngleFour);
+        }
+
 
         currentAngle = accelerometerManager.newRot.y; //check to make sure axis is right
+    }
+
+    void PlaceMarker(float ultraDistance, float ultraAngle)
+    {
+        Vector3 markerLocation = robot.transform.position + new Vector3(Mathf.Cos((currentAngle + ultraAngle) * Mathf.Deg2Rad) * ultraDistance, 0, Mathf.Sin((currentAngle + ultraAngle) * Mathf.Deg2Rad) * ultraDistance);
+
+        GameObject newMarker = Instantiate(markerPrefab, transform.position, Quaternion.identity);
+
+        markers.Add(newMarker);
     }
 }
