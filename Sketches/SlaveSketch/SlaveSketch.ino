@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include <vector>
+#include <string>
 
 unsigned long last_time = 0;
 
@@ -34,10 +35,10 @@ class UltrasonicSensor{ //finish this
   }
 };
 
-UltrasonicSensor UltraOne(10, 1, 2);
-UltrasonicSensor UltraTwo();
-UltrasonicSensor UltraThree();
-UltrasonicSensor UltraFour();
+UltrasonicSensor UltraOne(180, 4, 5);
+UltrasonicSensor UltraTwo(90, 6, 7);
+UltrasonicSensor UltraThree(0, 8, 9);
+UltrasonicSensor UltraFour(270, 2, 3);
 
 Servo frontLeft;
 Servo frontRight;
@@ -52,6 +53,8 @@ const char rightString[] = "right";
 
 void setup() {
   delay(2000);
+
+  ultraServo.attach(1);
 
   Serial.begin(9600);
 
@@ -146,6 +149,15 @@ void loop()
     if(state == 1) {
       moveDistance(10);
     }
+    if(state == 2) {
+      moveDistanceBackward(10);
+    }
+    if(state == 3) {
+      turnLeft();
+    }
+    if(state == 4) {
+      turnRight();
+    }
   }
 
 
@@ -171,7 +183,7 @@ float getUltrasonic(UltrasonicSensor ultra) { //add angle measurement using serv
   return distance;
 }
 
-float moveDistance(float targetDistance) {
+void moveDistance(float targetDistance) {
   backLeft.attach(11);
   backRight.attach(10);
   frontLeft.attach(13);
@@ -224,10 +236,10 @@ float moveDistance(float targetDistance) {
   frontLeft.detach();
   frontRight.detach();
 
-  return realDistance;
+  sendData(realDistance);
 }
 
-float moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
+void moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
   backLeft.attach(11);
   backRight.attach(10);
   frontLeft.attach(13);
@@ -280,7 +292,7 @@ float moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE M
   frontLeft.detach();
   frontRight.detach();
 
-  return realDistance;
+  sendData(-realDistance);
 }
 
 void turnLeft() {
@@ -339,6 +351,31 @@ void turnRight() { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
   frontRight.detach();
 }
 
-void sendData() {
-  string dataToSend = ""; //fix
+void sendData(float distanceMoved) {
+  float* dataToSend = new float[9]; //fix
+ 
+  dataToSend[0] = distanceMoved;
+
+  float ultraServoAngle = ultraServo.read();
+
+  dataToSend[1] = getUltrasonic(UltraOne);
+
+  dataToSend[2] = (UltraOne.initialAngle + ultraServoAngle);
+
+  dataToSend[3] = getUltrasonic(UltraTwo);
+
+  dataToSend[4] = (UltraTwo.initialAngle + ultraServoAngle);
+
+  dataToSend[5] = getUltrasonic(UltraThree);
+
+  dataToSend[6] = (UltraThree.initialAngle + ultraServoAngle);
+
+  dataToSend[7] = getUltrasonic(UltraFour);
+
+  dataToSend[8] = (UltraFour.initialAngle + ultraServoAngle);
+
+  for(int i = 0; i < 8; i++) {
+    server.write(dataToSend[i]);
+    server.write(" ");
+  }
 }
