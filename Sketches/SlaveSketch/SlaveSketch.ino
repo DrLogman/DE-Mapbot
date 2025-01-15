@@ -3,6 +3,9 @@
 #include <WiFi.h>
 #include <vector>
 #include <string>
+#include <iostream>
+#include <algorithm>
+#include <cstring>
 
 unsigned long last_time = 0;
 
@@ -51,15 +54,31 @@ Servo backLeft;
 Servo backRight;
 
 int state = 0; //0 is waiting, 1 is moving forward, 2 is moving backward, 3 is turning left, 4 is turning right
-const char forwardString[] = "fo";
-const char backString[] = "ba";
-const char leftString[] = "le";
-const char rightString[] = "ri";
+const char forwardString[] = "f";
+const char backString[] = "b";
+const char leftString[] = "l";
+const char rightString[] = "r";
+const char stopString[] = "s";
+
+const char forwardChar = 'f';
+const char backChar = 'b';
+const char leftChar = 'l';
+const char rightChar = 'r';
+const char stopChar = 's';
 
 float totalDistance = 0;
 
 void setup() {
   delay(2000);
+
+  pinMode(UltraOne.trigPin, OUTPUT);
+  pinMode(UltraOne.echoPin, INPUT);
+  pinMode(UltraTwo.trigPin, OUTPUT);
+  pinMode(UltraTwo.echoPin, INPUT);
+  pinMode(UltraThree.trigPin, OUTPUT);
+  pinMode(UltraThree.echoPin, INPUT);
+  pinMode(UltraFour.trigPin, OUTPUT);
+  pinMode(UltraFour.echoPin, INPUT);
 
   ultraServo.attach(1);
 
@@ -119,87 +138,102 @@ void loop()
       }
 
       serialInput[currentSize] = '\0';
-      char* movementInput = new char[2];
+      char* movementInput = new char[1];
       movementInput[0] = serialInput[0];
-      movementInput[1] = serialInput[1];
-      Serial.print(state);
-      Serial.println(serialInput);
+      //Serial.print(state);
+      Serial.println(movementInput);
       client.println(serialInput);     
-
-      if(state == 0) {
-        Serial.println("waiting");
-        
-        if(strcmp(movementInput, forwardString) == 0) 
-        {
-          state = 1;
-        }
-        else if(strcmp(movementInput, backString) == 0) 
-        {
-          state = 2;
-        }
-        else if(strcmp(movementInput, leftString) == 0) 
-        {
-          state = 3;
-        }
-        else if(strcmp(movementInput, rightString) == 0) 
-        {
-          state = 4;
-        }
-      } else {
-        char stopString[] = "st";
-        if(strcmp(movementInput, stopString) == 0) 
-        {
-          state = 0;
-        }
+      
+      /*
+      if(strcmp(movementInput, forwardString) == 0) 
+      {
+        state = 1;
+      }
+      else if(strcmp(movementInput, backString) == 0) 
+      {
+        state = 2;
+      }
+      else if(strcmp(movementInput, leftString) == 0) 
+      {
+        state = 3;
+      }
+      else if(strcmp(movementInput, rightString) == 0) 
+      {
+        state = 4;
+      } else if(strcmp(movementInput, stopString) == 0)
+      {
+        state = 0;
+      }
+      */
+      if(containsChar(serialInput, forwardChar)) 
+      {
+        state = 1;
+      }
+      else if(containsChar(serialInput, backChar)) 
+      {
+        state = 2;
+      }
+      else if(containsChar(serialInput, leftChar)) 
+      {
+        state = 3;
+      }
+      else if(containsChar(serialInput, rightChar)) 
+      {
+        state = 4;
+      } else if(containsChar(serialInput, stopChar))
+      {
+        state = 0;
       }
       
+      if(state == 1) {
+        totalDistance += moveDistance(30);
+      }
+      if(state == 2) {
+        totalDistance -= moveDistanceBackward(30);
+      }
+      if(state == 3) {
+        turnLeft();
+      }
+      if(state == 4) {
+        turnRight();
+      }
+    } else {
+      if(state == 0) {
+        if(millis() > last_time + 1500) {
+          backLeft.detach();
+          backRight.detach();
+          frontLeft.detach();
+          frontRight.detach();
 
-    }
-    if(state == 0) {
-      backLeft.detach();
-      backRight.detach();
-      frontLeft.detach();
-      frontRight.detach();
+          sendData(totalDistance);
 
-      //sendData(totalDistance);
+          totalDistance = 0;
 
-      totalDistance = 0;
-    }
-    if(state == 1) {
-      totalDistance += moveDistance(10);
-    }
-    if(state == 2) {
-      totalDistance -= moveDistanceBackward(10);
-    }
-    if(state == 3) {
-      turnLeft();
-    }
-    if(state == 4) {
-      turnRight();
+          last_time = millis();
+        }
+      }
     }
 
+    
     client.flush();
   }
-
-
-  if (millis() > last_time + 2000)
-  {
-    Serial.println("Arduino is alive!!");
+  if(millis() > last_time + 1000) {
     last_time = millis();
-  }
 
+    Serial.println("Arduino Alive");
+  }
 }
 
 float getUltrasonic(UltrasonicSensor ultra) { //consider adding filter here
   float distance = 0;
 
   digitalWrite(ultra.trigPin, HIGH);
-  delay(10);
+  delayMicroseconds(10);
   digitalWrite(ultra.trigPin, LOW);
 
   float echoTime = pulseIn(ultra.echoPin, HIGH);
 
-  distance = echoTime / 148.0;
+  distance = echoTime / 58.0;
 
   return distance;
 }
@@ -232,7 +266,7 @@ float moveDistance(float targetDistance) {
 
     realDistance += (0.001 * timeIncrement * calculatedSpeed);
 
-    Serial.println(realDistance);
+    //Serial.println(realDistance);
 
     incrementsCounted++;
 
@@ -257,6 +291,8 @@ float moveDistance(float targetDistance) {
   frontLeft.detach();
   frontRight.detach();
 
+  state = 0;
+
   return realDistance;
 }
 
@@ -270,7 +306,7 @@ float moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE M
   float timeIncrement = 100.0; //ms
   float incrementsCounted = 0.0;
 
-  Serial.println("Moving");
+  //Serial.println("Moving");
 
   frontLeft.write(0);
   backLeft.write(0);
@@ -313,6 +349,8 @@ float moveDistanceBackward(float targetDistance) { //MAKE SURE TO DELAY BEFORE M
   frontLeft.detach();
   frontRight.detach();
 
+  state = 0;
+
   return realDistance;
 }
 
@@ -322,9 +360,9 @@ void turnLeft() {
   frontLeft.attach(13);
   frontRight.attach(12);
 
-  float timeIncrement = 100.0; //ms
+  float timeIncrement = 1000.0; //ms
 
-  Serial.println("Moving");
+  //Serial.println("Moving");
 
   frontLeft.write(0);
   backLeft.write(0);
@@ -343,6 +381,7 @@ void turnLeft() {
   frontLeft.detach();
   frontRight.detach();
 
+  state = 0;
 }
 
 void turnRight() { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
@@ -351,9 +390,9 @@ void turnRight() { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
   frontLeft.attach(13);
   frontRight.attach(12);
 
-  float timeIncrement = 100.0; //ms
+  float timeIncrement = 1000.0; //ms
 
-  Serial.println("Moving");
+  //Serial.println("Moving");
 
   frontLeft.write(180);
   backLeft.write(180);
@@ -371,6 +410,8 @@ void turnRight() { //MAKE SURE TO DELAY BEFORE MOVING BACKWARD
   backRight.detach();
   frontLeft.detach();
   frontRight.detach();
+
+  state = 0;
 }
 
 void sendData(float distanceMoved) {
@@ -397,11 +438,15 @@ void sendData(float distanceMoved) {
   dataToSend[8] = (UltraFour.initialAngle + ultraServoAngle);
 
 
-  client.print("A ");
+  client.print("A");
   for(int i = 0; i < 9; i++) {
     client.print(dataToSend[i]);
     client.print(" ");
   }
-  client.println(" ");
+  client.println("");
   client.flush();
+}
+
+bool containsChar(const char* arr, char target) {
+    return std::find(arr, arr + std::strlen(arr), target) != arr + std::strlen(arr);
 }

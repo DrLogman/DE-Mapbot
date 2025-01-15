@@ -13,10 +13,13 @@ public class ArduinoReadWrite : MonoBehaviour
 
     List<GameObject> markers = new List<GameObject>();
 
-    float pingTime = 0;
-    bool pingWaiting = false;
     float currentAngle = 0;
-    bool moving = false;
+    public int oldState = 0;
+    public int newState = 0;
+
+    public string[] splitData;
+
+    public float distanceMoved, ultraDistanceOne, ultraAngleOne, ultraDistanceTwo, ultraAngleTwo, ultraDistanceThree, ultraAngleThree, ultraDistanceFour, ultraAngleFour;
 
     // Start is called before the first frame update
     void Start()
@@ -26,8 +29,33 @@ public class ArduinoReadWrite : MonoBehaviour
         arduinoSerial.ReadTimeout = 500;
         arduinoSerial.DtrEnable = true;
         arduinoSerial.BaseStream.Flush();
+
+        StartCoroutine(CheckInputs());
     }
 
+    IEnumerator CheckInputs()
+    {
+        while(true)
+        {
+            if (Input.GetKey(KeyCode.W)) //make ordered structure with else stop
+            {
+                arduinoSerial.WriteLine("forward");
+            }
+            if (Input.GetKey(KeyCode.S))
+            {
+                arduinoSerial.WriteLine("back");
+            }
+            if (Input.GetKey(KeyCode.A))
+            {
+                arduinoSerial.WriteLine("left");
+            }
+            if (Input.GetKey(KeyCode.D))
+            {
+                arduinoSerial.WriteLine("right");
+            }
+            yield return new WaitForSeconds(0.3f);
+        }
+    }
     // Update is called once per frame
     void Update()
     {
@@ -39,11 +67,14 @@ public class ArduinoReadWrite : MonoBehaviour
                 string data = arduinoSerial.ReadLine();
 
                 Debug.Log("Received from Arduino: " + data);
-                /*
-                if (string.Equals(data.Substring(0, 1), "A"))
+
+                if(data.Length > 1)
                 {
-                    InterpretMovementData(data);
-                }*/
+                    if (data.Substring(0, 1).Equals("A"))
+                    {
+                        InterpretMovementData(data.Substring(0));
+                    }
+                }
             }
             catch (System.TimeoutException)
             {
@@ -51,48 +82,6 @@ public class ArduinoReadWrite : MonoBehaviour
             }
         }
 
-        if (Input.GetKey(KeyCode.W)) //make ordered structure with else stop
-        {
-            if(!moving)
-            {
-                arduinoSerial.WriteLine("forward");
-                moving = true;
-                arduinoSerial.BaseStream.Flush();
-            }
-        }
-        else if (Input.GetKey(KeyCode.S))
-        {
-            if (!moving)
-            {
-                arduinoSerial.WriteLine("back");
-                moving = true;
-                arduinoSerial.BaseStream.Flush();
-            }
-        }
-        else if (Input.GetKey(KeyCode.A))
-        {
-            if (!moving)
-            {
-                arduinoSerial.WriteLine("left");
-                moving = true;
-                arduinoSerial.BaseStream.Flush();
-            }
-        }
-        else if (Input.GetKey(KeyCode.D))
-        {
-            if (!moving)
-            {
-                arduinoSerial.WriteLine("left");
-                moving = true;
-                arduinoSerial.BaseStream.Flush();
-            }
-        }
-         else if(moving)
-        {
-            arduinoSerial.WriteLine("stop");
-            moving = false;
-            arduinoSerial.BaseStream.Flush();
-        }
 
         arduinoSerial.BaseStream.Flush();
     }
@@ -109,37 +98,38 @@ public class ArduinoReadWrite : MonoBehaviour
     {
         char[] delimiterChars = { ' ', ',', '\t', 'A' };
 
-        string[] splitData = data.Split(delimiterChars);
+        splitData = data.Split(delimiterChars);
 
-        float distanceMoved = float.Parse(splitData[0]);
-        float ultraDistanceOne = float.Parse(splitData[1]);
-        float ultraAngleOne = float.Parse(splitData[2]);
-        float ultraDistanceTwo = float.Parse(splitData[3]);
-        float ultraAngleTwo = float.Parse(splitData[4]);
-        float ultraDistanceThree = float.Parse(splitData[5]);
-        float ultraAngleThree = float.Parse(splitData[6]);
-        float ultraDistanceFour = float.Parse(splitData[7]);
-        float ultraAngleFour = float.Parse(splitData[8]);
+        distanceMoved = float.Parse(splitData[1]);
+        ultraDistanceOne = float.Parse(splitData[2]);
+        ultraAngleOne = float.Parse(splitData[3]);
+        ultraDistanceTwo = float.Parse(splitData[4]);
+        ultraAngleTwo = float.Parse(splitData[5]);
+        ultraDistanceThree = float.Parse(splitData[6]);
+        ultraAngleThree = float.Parse(splitData[7]);
+        ultraDistanceFour = float.Parse(splitData[8]);
+        ultraAngleFour = float.Parse(splitData[9]);
 
         robot.transform.position += new Vector3(Mathf.Cos(currentAngle * Mathf.Deg2Rad) * distanceMoved, 0, Mathf.Sin(currentAngle * Mathf.Deg2Rad) * distanceMoved);
 
         robot.transform.rotation = Quaternion.Euler(0, currentAngle, 0);
 
         float noiseThreshold = 1000;
+        float minValue = 0;
 
-        if(ultraDistanceOne < noiseThreshold)
+        if(ultraDistanceOne < noiseThreshold && ultraDistanceOne > minValue)
         {
             PlaceMarker(ultraDistanceOne, ultraAngleOne);
         }
-        if (ultraDistanceTwo < noiseThreshold)
+        if (ultraDistanceTwo < noiseThreshold && ultraDistanceTwo > minValue)
         {
             PlaceMarker(ultraDistanceTwo, ultraAngleTwo);
         }
-        if (ultraDistanceThree < noiseThreshold)
+        if (ultraDistanceThree < noiseThreshold && ultraDistanceThree > minValue)
         {
             PlaceMarker(ultraDistanceThree, ultraAngleThree);
         }
-        if (ultraDistanceFour < noiseThreshold)
+        if (ultraDistanceFour < noiseThreshold && ultraDistanceFour > minValue)
         {
             PlaceMarker(ultraDistanceFour, ultraAngleFour);
         }
@@ -152,7 +142,7 @@ public class ArduinoReadWrite : MonoBehaviour
     {
         Vector3 markerLocation = robot.transform.position + new Vector3(Mathf.Cos((currentAngle + ultraAngle) * Mathf.Deg2Rad) * ultraDistance, 0, Mathf.Sin((currentAngle + ultraAngle) * Mathf.Deg2Rad) * ultraDistance);
 
-        GameObject newMarker = Instantiate(markerPrefab, transform.position, Quaternion.identity);
+        GameObject newMarker = Instantiate(markerPrefab, markerLocation, Quaternion.identity);
 
         markers.Add(newMarker);
     }
